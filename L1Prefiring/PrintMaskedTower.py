@@ -24,10 +24,11 @@ def maskedTT(filename, histname, txtfile):
 
 
 
+inputrootfilename = "rootfiles/PrefiringRateEE_2017data.root"
 
-masked_tp = maskedTT("ttplot_debug_306456_tp32_oldped.root", "ieta_vs_iphi_TP", "masked_TT.txt")
+masked_tp = maskedTT(inputrootfilename, "ieta_vs_iphi_TP", "masked_TT.txt")
 
-masked_etp = maskedTT("ttplot_debug_306456_tp32_oldped.root", "ieta_vs_iphi_ETP", "masked_ETT.txt")
+masked_etp = maskedTT(inputrootfilename, "ieta_vs_iphi_ETP", "masked_ETT.txt")
 
 #print masked_tp
 #print masked_etp
@@ -36,7 +37,7 @@ masked_all = masked_tp | masked_etp
 
 #print masked_all
 
-f_all = open("masted_TT_all.txt","w")
+f_all = open("masked_TT_all_2017.txt","w")
 
 for iele in masked_all:
     f_all.write(iele)

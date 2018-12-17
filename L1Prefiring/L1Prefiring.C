@@ -4,7 +4,7 @@
 #include <string>
 #include <cmath>
 #include <map>
-//#include <boost/tokenizer.hpp>
+
 #include <vector>
 
 #include <TChain.h>
@@ -17,8 +17,28 @@
 
 #include <time.h>       /* time_t, struct tm, difftime, time, mktime */
 
+/* 
+Written by David Petyt
+
+Edited by Raman Khurana
+
+11 December 2018
+Added: information for the pre firing variables 
+     : 1d histograms for each ieta ring, X axis is emulator index. for two set of selection, 
+     : tp > 0 , tp > 0 and energy > 16 ADC 
+     
+12 December 2018: 
+Added: configurable energy cut, to make it possible to run with different value of energy threshold. 
+
+To be added: 
+
+
+*/
+
+
 using  namespace std;
 
+bool is2017 = true; 
 
 
 struct EcalAux
@@ -145,7 +165,11 @@ std::vector<float> MaskedCoordinate(int icol=1){
   std::vector<float> ietaV;
   ietaV.clear();
   string line;
-  ifstream maskedTT ("masted_TT_all.txt");
+  TString maskedfile;
+  if (is2017)  maskedfile = "masked_TT_all_2017.txt";
+  if (!is2017) maskedfile = "masked_TT_all_2018.txt";
+  
+  ifstream maskedTT (maskedfile);
   if (maskedTT.is_open()){
     while ( getline (maskedTT,line) ){
       
@@ -270,8 +294,9 @@ UInt_t getTtf(UInt_t val) {return ((val>>9)&0x7) ;}
 ///////  Main program /////////
 
 //void tpgreader()
-void L1Prefiring()
+void L1Prefiring(int threshold=16)
 {  
+  std::cout<<" threshold = "<<threshold << std::endl;
 
   time_t timer;
   double initial_t = time(&timer);
@@ -281,8 +306,13 @@ void L1Prefiring()
 
   // input TPGTree file
   
-  chain->Add("/eos/cms/store/user/pbarria/TPG/ECALTPGTree_ZeroBias2_Run2017F-Run306425_RAW-RECO.root");
-  chainAux->Add("/eos/cms/store/user/pbarria/TPG/ECALTPGTree_ZeroBias2_Run2017F-Run306425_RAW-RECO.root");
+  TString inputrootfile;
+  if (is2017)  inputrootfile = "/eos/cms/store/user/pbarria/TPG/ECALTPGTree_ZeroBias2_Run2017F-Run306425_RAW-RECO.root"; // 2017 with prefiring 
+  if (!is2017) inputrootfile = "/afs/cern.ch/user/s/sdutt/work/public/ECALTPGTree_subset.root" ;                          // 2018 without prefiring, full readout 
+     
+  
+  chain->Add(inputrootfile);
+  chainAux->Add(inputrootfile);
   
 
 
@@ -305,8 +335,34 @@ void L1Prefiring()
   TH2F* ieta_vs_iphi_TP0            = new TH2F("ieta_vs_iphi_TP0","ieta_vs_iphi_TP0",57,-28.5,28.5,72,0.5,72.5);
   TH2F* ieta_vs_iphi_TP0_ETP        = new TH2F("ieta_vs_iphi_TP0_ETP","ieta_vs_iphi_TP0_ETP",57,-28.5,28.5,72,0.5,72.5);
 
+
+  TH2F* ieta_vs_idx_TP_ETP          = new TH2F("ieta_vs_idx_TP_ETP","ieta_vs_idx_TP_ETP",11,17.5,28.5, 5, -0.5, 4.5); 
+  TH2F* ieta_vs_idx_TP0             = new TH2F("ieta_vs_idx_TP0","ieta_vs_idx_TP0", 11,17.5,28.5 , 5, -0.5, 4.5);
+  TH2F* ieta_vs_idx_TP0_ETP         = new TH2F("ieta_vs_idx_TP0_ETP","ieta_vs_idx_TP0_ETP", 11,17.5,28.5 , 5, -0.5, 4.5);
+  
+  
+  TH2F* ieta_vs_iphi_TP16           = new TH2F("ieta_vs_iphi_TP16","ieta_vs_iphi_TP16", 57,-28.5,28.5,72,0.5,72.5);
+  TH2F* ieta_vs_iphi_ETP16_IDX2     = new TH2F("ieta_vs_iphi_ETP16_IDX2","ieta_vs_iphi_ETP16_IDX2",57,-28.5,28.5,72,0.5,72.5);
+  TH2F* ieta_vs_iphi_ETP16_IDXAny   = new TH2F("ieta_vs_iphi_ETP16_IDXAny","ieta_vs_iphi_ETP16_IDXAny",57,-28.5,28.5,72,0.5,72.5);
+
+  TH2F* idx_vs_ieta_TP16           = new TH2F("idx_vs_ieta_TP16","idx_vs_ieta_TP16", 11,17.5,28.5,5, -0.5, 4.5 );
+  TH2F* idx_vs_ieta_ETP16_IDX2     = new TH2F("idx_vs_ieta_ETP16_IDX2","idx_vs_ieta_ETP16_IDX2",11,17.5,28.5, 5, -0.5, 4.5);
+  TH2F* idx_vs_ieta_ETP16_IDXAny   = new TH2F("idx_vs_ieta_ETP16_IDXAny","idx_vs_ieta_ETP16_IDXAny",11,17.5,28.5,5, -0.5, 4.5);
+
   TH1F* idx_TP0                    = new TH1F("idx_TP0","idx_TP0_ETP",5, -0.5, 4.5);
   TH1F* idx_TP0_ETP                = new TH1F("idx_TP0_ETP","idx_TP0_ETP",5, -0.5, 4.5);
+  
+  TH1F* idx_TP0_vec[11];
+  TH1F* idx_TP0_ETP_vec[11];
+  
+  for (int i=0; i<11; i++){
+    TString postname;
+    postname.Form("%d",i+18);
+    std::cout<<" postname = "<<postname<<std::endl;
+    idx_TP0_vec[i] = new TH1F("idx_TP0_vec_"+postname, "idx_TP0_vec_"+postname, 5, -0.5, 4.5);
+    idx_TP0_ETP_vec[i] = new TH1F("idx_TP0_ETP_vec_"+postname, "idx_TP0_ETP_vec_"+postname, 5, -0.5, 4.5);
+    
+  }
   
   TH1F* ieta_TP_ETP_INTIME         = new TH1F("ieta_TP_ETP_INTIME","ieta_TP_ETP_INTIME",57,-28.5,28.5);
   TH1F* ieta_TP_ETP_OUTTIME        = new TH1F("ieta_TP_ETP_OUTTIME","ieta_TP_ETP_OUTTIME",57,-28.5,28.5);
@@ -440,25 +496,63 @@ void L1Prefiring()
       
 
       // get the masked towers.
- 
       if (tp>0.0) ieta_vs_iphi_TP->Fill(ieta,iphi);
       if (maxOfTPEmul > 0.0) ieta_vs_iphi_ETP->Fill(ieta,iphi);
-      
       // masked towers ends here. 
       
       
+
+      // check if this is already tagged by COKE
+      bool hasnoisyxtal  = false;
+      if (is2017) hasnoisyxtal = false;
+      if (!is2017) hasnoisyxtal  = (ttflag >3) ; 
+
+      // check if the TT is already masked. 
+      bool masked_ = isMasked(etaV, phiV, ieta, iphi);
       
-      // nomenclarure for histograms 
-      // variable to be filled (in the order): in lower case 
-      // varibale on which cut is applied: in Upper case
+      // skip the tower if this is msked or it is tagged by COKE as noisy. 
+      if (masked_) continue;
+      if (hasnoisyxtal) continue;
+      
+      
+      
+      // data TP has energy > 16 ADC
+      if (tp>threshold){
+	ieta_vs_iphi_TP16->Fill(ieta, iphi);
+        idx_vs_ieta_TP16->Fill(ieta, indexOfTPEmulMax);
+
+      }
+      
+      // emulated TP has energy > 16 ADC and it is in right bunch crossing 
+      if(maxOfTPEmul>threshold && indexOfTPEmulMax==2){
+	ieta_vs_iphi_ETP16_IDX2->Fill(ieta, iphi);
+	idx_vs_ieta_ETP16_IDX2->Fill(ieta, indexOfTPEmulMax);
+      }
+      
+      // emiulated Tp has energy > 16 ADC and it can be in any bunch crossing. 
+      if(maxOfTPEmul>threshold){
+	ieta_vs_iphi_ETP16_IDXAny->Fill(ieta, iphi);
+	idx_vs_ieta_ETP16_IDXAny->Fill(ieta, indexOfTPEmulMax);
+      }
+
+
+
       
       // denominator for condition 1 and 2 are same. The denominator for condition 3 is defined differently. 
       // I might have to change this  (ask David?) 
-      
+     
+
       // denominator seelction for 1 and 2
-      if (tp>16 && maxOfTPEmul>0){
+      if (tp>threshold && maxOfTPEmul>0){
 	ieta_vs_iphi_TP_ETP->Fill(ieta, iphi);
 	ieta_TP_ETP->Fill(ieta);
+
+	
+	// 
+	ieta_vs_idx_TP_ETP->Fill(abs(ieta), indexOfTPEmulMax);
+	
+	
+	
 	//std::cout<<" denominator for the cond1 and cond2"<<std::endl;
 	// condition 1: 
 	// where both data and emulated TPs exist, and the emulated TP is in the correct bunch crossing
@@ -470,7 +564,7 @@ void L1Prefiring()
 	
 	// condition 2: 
 	// where both data and emulated TPs exist, but the emulated TP is in the wrong bunch crossing
-	if (tp>16 && maxOfTPEmul>0 && indexOfTPEmulMax!=2){
+	if (tp>threshold && maxOfTPEmul>0 && indexOfTPEmulMax!=2){
 	  ieta_vs_iphi_TP_ETP_OUTTIME->Fill(ieta, iphi);
 	  ieta_TP_ETP_OUTTIME->Fill(ieta);
 	  //std::cout<<" numerator for the cond2"<<std::endl;
@@ -480,24 +574,38 @@ void L1Prefiring()
       
       
       // denominator for condition 3: 
-      if (tp==0){
-	
-	// check if the TT is already masked. 
-		
-	bool masked_ = isMasked(etaV, phiV, ieta, iphi);
+      if (tp==0  && !hasnoisyxtal ){
 	//std::cout<<" this TT is masked "<<masked_<<" "<<ieta<<" " <<iphi<<" "<<std::endl;
 	if (masked_) continue ;
 	
-	
+	//
 	idx_TP0->Fill(indexOfTPEmulMax);
+	int ieta_index = abs(ieta) - 18;
+	//std::cout<<" ieta, ieta_index "<< ieta<<"  "<<ieta_index<<std::endl;
+	idx_TP0_vec[ieta_index]->Fill(indexOfTPEmulMax);
+	
 	ieta_vs_iphi_TP0->Fill(ieta, iphi);
-	ieta_TP0->Fill(ieta) ;           
+	ieta_TP0->Fill(ieta) ;
+	
+	ieta_vs_idx_TP0->Fill(abs(ieta), indexOfTPEmulMax);
 	// condition 3: 
 	// where only an emulated TP exists  (here it will be necessary to remove towers that are masked)
-	if ( tp==0 && maxOfTPEmul>16 ) {
+	if ( tp==0 && maxOfTPEmul>threshold) {
+	  
+	  // 
+	  ieta_vs_idx_TP0_ETP->Fill(abs(ieta), indexOfTPEmulMax);
+	  
+	  
+	  //std::cout<<" TT flag = "<<ttflag<<std::endl;
+	  
+	  
 	  ieta_vs_iphi_TP0_ETP->Fill(ieta, iphi);
 	  idx_TP0_ETP->Fill(indexOfTPEmulMax);
+	  
+	  idx_TP0_ETP_vec[ieta_index]->Fill(indexOfTPEmulMax);
+	  
 	  ieta_TP0_ETP->Fill(ieta) ;
+	  
 	  //std::cout<<" numerator for the cond3"<<std::endl;
 
 	}
@@ -512,8 +620,14 @@ void L1Prefiring()
     }
     
   }
-    
-  TFile fout("ttplot_debug_306456_tp32_oldped.root","RECREATE");
+  
+  TString outputfilename;
+  TString cutval;
+  cutval.Form("%d",threshold);
+  if (is2017) outputfilename  = "PrefiringRateEE_2017data_cutval_"+cutval+".root";
+  if (!is2017) outputfilename = "PrefiringRateEE_2018data_cutval_"+cutval+".root";
+  
+  TFile fout(outputfilename,"RECREATE");
   fout.cd();
 
   ieta_vs_iphi_TP->Write();
@@ -526,10 +640,27 @@ void L1Prefiring()
   ieta_vs_iphi_TP0->Write();
   ieta_vs_iphi_TP0_ETP->Write();
   
+  
+  ieta_vs_idx_TP_ETP->Write();
+  ieta_vs_idx_TP0->Write();
+  ieta_vs_idx_TP0_ETP->Write();
+
+  ieta_vs_iphi_TP16->Write();
+  ieta_vs_iphi_ETP16_IDX2->Write();
+  ieta_vs_iphi_ETP16_IDXAny->Write();
+
+  idx_vs_ieta_TP16->Write();
+  idx_vs_ieta_ETP16_IDX2->Write();
+  idx_vs_ieta_ETP16_IDXAny->Write();
+  
+
   idx_TP0->Write();
   idx_TP0_ETP->Write();
 
 
+  //ieta_vs_idx_TP0->Write();
+  //ieta_vs_idx_TP0_ETP->Write();
+  
   // after writing the histograms, perform operations on them to extract fraction etc. 
   
   TH2F* frac_ieta_vs_iphi_TP_ETP_INTIME = ((TH2F*) fout.Get("ieta_vs_iphi_TP_ETP_INTIME"));
@@ -579,6 +710,35 @@ void L1Prefiring()
   frac_ieta_TP0_ETP->Divide(ieta_TP0);
   frac_ieta_TP0_ETP->Write();
 
+
+  TH2F* frac_ieta_vs_iphi_TP16_DIV_ETP16_IDXAny = (TH2F*) fout.Get("ieta_vs_iphi_TP16");
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDXAny->SetName("frac_ieta_vs_iphi_TP16_DIV_ETP16_IDXAny");
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDXAny->Divide(ieta_vs_iphi_ETP16_IDXAny);
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDXAny->Write();
+
+  TH2F* frac_ieta_vs_iphi_TP16_DIV_ETP16_IDX2 = (TH2F*) fout.Get("ieta_vs_iphi_TP16");
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDX2->SetName("frac_ieta_vs_iphi_TP16_DIV_ETP16_IDX2");
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDX2->Divide(ieta_vs_iphi_ETP16_IDX2);
+  frac_ieta_vs_iphi_TP16_DIV_ETP16_IDX2->Write();
+
+
+  TH2F* frac_idx_vs_ieta_TP16_DIV_ETP16_IDXAny = (TH2F*) fout.Get("idx_vs_ieta_TP16");
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDXAny->SetName("frac_idx_vs_ieta_TP16_DIV_ETP16_IDXAny");
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDXAny->Divide(idx_vs_ieta_ETP16_IDXAny);
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDXAny->Write();
+  
+  TH2F* frac_idx_vs_ieta_TP16_DIV_ETP16_IDX2 = (TH2F*) fout.Get("idx_vs_ieta_TP16");
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDX2->SetName("frac_idx_vs_ieta_TP16_DIV_ETP16_IDX2");
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDX2->Divide(idx_vs_ieta_ETP16_IDX2);
+  frac_idx_vs_ieta_TP16_DIV_ETP16_IDX2->Write();
+  
+  
+  TH2F* frac_ieta_vs_idx_TP0_ETP_DIV_TP0 = (TH2F*) fout.Get("ieta_vs_idx_TP0_ETP");
+  frac_ieta_vs_idx_TP0_ETP_DIV_TP0->SetName("frac_ieta_vs_idx_TP0_ETP_DIV_TP0");
+  frac_ieta_vs_idx_TP0_ETP_DIV_TP0->Divide(ieta_vs_idx_TP0);
+  frac_ieta_vs_idx_TP0_ETP_DIV_TP0->Write();
+  
+  
   fout.Close();
 
   double final_t = time(&timer);
